@@ -178,4 +178,4 @@ This project demonstrates:
 # Author
 
 **Shashank Sharma**  
-Aspiring Data Analyst | SQL | Python | Risk Analytics | Business Intelligence
+Data Analyst | SQL | Python | Risk Analytics | Business Intelligence
