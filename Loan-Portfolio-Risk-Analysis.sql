@@ -280,5 +280,82 @@ SELECT customer_id, total_loans,
 	   ROW_NUMBER()OVER(ORDER BY total_loans DESC) AS ranking
 FROM tble;
 
+-- PHASE 3 — Repayment Analysis
+-- 16.Calculate overall repayment rate.
+
+
+
+-- 17. Find percentage of missed payments.
+
+SELECT COUNT(CASE WHEN payment_status = 'Missed' THEN 1 END)/COUNT(*) * 100 
+       AS 
+	   perctnge_missed_payments
+FROM repayments;
+
+-- 18. Find top 10 loans with highest missed EMI count.
+
+SELECT loan_id , COUNT(loan_id) AS missed_EMIs
+FROM repayments
+WHERE payment_status = 'Missed'
+GROUP BY loan_id
+ORDER BY COUNT(loan_id) DESC
+LIMIT 10;
+
+-- 19. Calculate average delay days for late payments.
+
+WITH late_days AS
+(
+SELECT TIMESTAMPDIFF(DAY, due_date, payment_date) AS daydiff
+FROM repayments
+WHERE payment_status = 'Late'
+)
+SELECT AVG(daydiff) AS avg_delay_days
+FROM late_days;
+
+-- 20. Find repayment performance by loan type.
+
+WITH status_count AS
+(SELECT loan_id, COUNT(CASE WHEN payment_status = 'Paid' THEN 1 END) AS paid_count, 
+       COUNT(CASE WHEN payment_status = 'Late' THEN 1 END) AS late_count, 
+	   COUNT(CASE WHEN payment_status = 'Missed' THEN 1 END) AS missed_count
+FROM repayments
+GROUP BY loan_id
+)
+SELECT L.loan_type, SUM(S.paid_count) AS PaidOnTime, SUM(S.late_count) AS PaidLate, SUM(S.missed_count) AS MissedCount
+FROM status_count S
+LEFT JOIN loans L ON S.loan_id = L.loan_id
+GROUP BY L.loan_type;
+
+-- 21. Calculate collection efficiency branch-wise.
+
+SELECT B.branch_name, SUM(R.amount_paid)/SUM(R.emi_amount)* 100 AS Collection_efficiency
+FROM loans L
+LEFT JOIN branches B ON L.branch_id = B.branch_id
+JOIN repayments R ON L.loan_id = R.loan_id 
+GROUP BY B.branch_name;
+
+-- 22. Find customers who missed payments consecutively.
+
+WITH repayment_history AS (
+
+    SELECT
+        C.customer_id,
+        C.first_name,
+        C.last_name,
+        R.due_date,
+        R.payment_status,
+        LAG(R.payment_status)OVER(PARTITION BY C.customer_id ORDER BY R.due_date) AS previous_status
+    FROM customers C
+    INNER JOIN loans L
+        ON C.customer_id = L.customer_id
+
+    INNER JOIN repayments R
+        ON R.loan_id = L.loan_id
+)
+SELECT *
+FROM repayment_history
+WHERE payment_status = 'Missed'
+  AND previous_status = 'Missed';
+
 
 
