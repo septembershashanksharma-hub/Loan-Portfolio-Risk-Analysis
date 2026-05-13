@@ -10,10 +10,6 @@ from datetime import datetime, timedelta
 
 fake = Faker()
 
-# =========================================
-# CONFIGURATION
-# =========================================
-
 NUM_CUSTOMERS = 2000
 NUM_BRANCHES = 20
 NUM_LOANS = 10000
