@@ -357,5 +357,95 @@ FROM repayment_history
 WHERE payment_status = 'Missed'
   AND previous_status = 'Missed';
 
+-- PHASE 4 — Delinquency Analysis
+-- 23. Find total delinquent accounts by bucket (30 DPD, 60 DPD, 90+ DPD).
+
+SELECT delinquency_bucket, COUNT(DISTINCT loan_id) AS Number_of_accounts
+FROM delinquencies
+GROUP BY delinquency_bucket;
+
+-- 24. Calculate delinquent exposure amount by loan type.
+
+SELECT L.loan_type, SUM(D.penalty_amount) AS total_delinquent_exposure
+FROM loans L 
+JOIN delinquencies D ON L.loan_id = D.loan_id
+GROUP BY L.loan_type;
+
+-- 25. Find top branches with highest 90+ DPD accounts.
+
+SELECT B.branch_id, B.branch_name, COUNT(CASE WHEN D.delinquency_bucket = '90+ DPD' THEN 1 END) AS Number_of_DPD_accounts
+FROM loans L
+JOIN branches B ON B.branch_id = L.branch_id
+JOIN delinquencies D ON D.loan_id = L.loan_id
+GROUP BY B.branch_id, B.branch_name;
+
+SELECT*
+FROM loans;
+SELECT *
+FROM loan_applications;
+SELECT *
+FROM repayments;
+SELECT *
+FROM delinquencies;
+SELECT *
+FROM customers;
+SELECT *
+FROM branches;
+
+-- 26. Find monthly delinquency trend. (Hint: DATE_FORMAT + GROUP BY)
+
+SELECT DATE_FORMAT(reported_date, '%Y-%m') AS MonthlyDate, COUNT(delinquency_id) AS delinquency_count
+FROM delinquencies
+GROUP BY DATE_FORMAT(reported_date, '%Y-%m')
+ORDER BY DATE_FORMAT(reported_date, '%Y-%m');
+
+-- 27. Calculate month-over-month delinquency growth.
+
+WITH monthly_trend AS
+(
+    SELECT 
+        DATE_FORMAT(reported_date, '%Y-%m') AS MonthlyDate, 
+        COUNT(*) AS delinquency_count
+    FROM delinquencies
+    GROUP BY DATE_FORMAT(reported_date, '%Y-%m')
+),
+lagged_data AS
+(
+    SELECT
+        MonthlyDate,
+        delinquency_count,
+        LAG(delinquency_count)
+        OVER(ORDER BY MonthlyDate) AS previous_count
+    FROM monthly_trend
+)
+SELECT
+    MonthlyDate,
+    delinquency_count,
+    previous_count,
+    (
+        delinquency_count - previous_count
+    ) / previous_count * 100 AS month_over_month_growth
+FROM lagged_data;
+
+-- 28. Find loans having multiple delinquency records.
+
+SELECT loan_id AS loans_with_multiple_delinquecies
+FROM delinquencies
+GROUP BY loan_id
+HAVING COUNT(delinquency_id)>1; 
+
+-- 29. Find customers contributing highest delinquent exposure.
+
+SELECT C.customer_id, SUM(L.loan_amount) AS delinquent_exposure
+FROM loans L
+JOIN customers C ON L.customer_id = C.customer_id
+WHERE L.loan_id IN (
+    SELECT DISTINCT loan_id 
+    FROM delinquencies
+    WHERE loan_id IS NOT NULL
+)
+GROUP BY C.customer_id
+ORDER BY delinquent_exposure DESC;
+
 
 
